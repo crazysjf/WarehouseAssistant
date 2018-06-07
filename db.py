@@ -73,16 +73,15 @@ def gen_reresult_file():
     dict = {}
     for c in df['款式编码']:
         # 在库存表中有的行只有商品编码没有款式编码，必须借助商品表中转
-        sql = u"""SELECT t.仓位, t.数量 
+        sql = u"""SELECT distinct t.仓位
               FROM goods as g, stock as t
           Where t.商品编码=g.商品编码 and 
           g.款式编码='%s' and 
           t.库存类型='仓位'""" % c
         df1 = pd.read_sql_query(sql, conn)
         s = ""
-        for i in df1.index:
-            r = df1.loc[i]
-            s = s + "%s, %d\n" % (r[0], r[1])
+        for r in df1['仓位']:
+            s = s + "%s, " % r
         dict[c] = s
 
     df[u'仓位'] = df['款式编码'].map(lambda c: dict[c])
