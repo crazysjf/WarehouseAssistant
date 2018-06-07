@@ -1,0 +1,8 @@
+# 基本思路
+导出几个固定的excel，自动分析。
+excel转成pandas dataframe，直接分析或者转成sqlite table后用sql分析。
+结果转成pandas之后再转成excel导出。
+
+SQlite And pandas：https://www.dataquest.io/blog/python-pandas-databases/
+Join And Merge Pandas Dataframe：https://chrisalbon.com/python/data_wrangling/pandas_join_merge_dataframe/
+
