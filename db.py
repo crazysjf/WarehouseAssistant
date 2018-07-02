@@ -46,7 +46,7 @@ sql_clearance = u"""SELECT  g.款式编码, g.商品名, sum(s.[7天销量]) as 
 #
 # 销量过低SKU
 # 上架超过30天，周销<=2，且不包括在清仓处理中 的SKU
-sql_sales_to_low = u"""SELECT  g.商品编码, g.备注, s.[7天销量], s.[15天销量], t.数量, g.createTime
+sql_sales_too_low = u"""SELECT  g.商品编码, g.备注, s.[7天销量], s.[15天销量], t.数量,  g.createTime, t.仓位
       FROM goods as g, sales as s, stock as t
       Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
        t.库存类型='仓位' and
@@ -59,6 +59,24 @@ sql_sales_to_low = u"""SELECT  g.商品编码, g.备注, s.[7天销量], s.[15�
        g.备注 Not Like '%%收%%')and
         g.款式编码 not in (select code from clearance) and 
         g.createTime<Date('%s')""" % (date.today() - timedelta(30))
+
+# 清仓商品销量：备注包含“清”字，且销量>0的款
+sql_sales_clearance = u"""SELECT  g.商品编码, g.备注, s.[7天销量], s.[15天销量], t.数量, g.createTime
+      FROM goods as g, sales as s, stock as t
+      Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
+       (s.[7天销量] > 0 or s.[15天销量] > 0) and 
+       g.备注 Like '%%清%%'"""
+
+# 可下架商品：清仓已经15天且无15天内无销量的款，此处仅选出清仓且15天销量为0的款，具体清了多少时间要选出后在筛选
+sql_off_shelf =  u"""SELECT  g.款式编码, g.商品名, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime
+      FROM goods as g, sales as s, stock as t 
+      Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
+       t.库存类型='仓位' and
+       t.数量 >0 and
+       g.备注 Like '%%清%%' and
+       (select sum(s1.[15天销量]) from sales s1 where s1.商品款号 = s.商品款号) = 0
+        group by g.款式编码"""
+
 
 def gen_reresult_file():
     writer = pd.ExcelWriter(utils.get_output_full_file_path('结果.xlsx'))
@@ -87,14 +105,25 @@ def gen_reresult_file():
             s = s + "%s, " % r
         dict[c] = s
 
+    # 清仓款
     df[u'仓位'] = df['款式编码'].map(lambda c: dict[c])
-    df.to_excel(writer, u"半价清仓",  index=False)
+    df.to_excel(writer, "半价清仓（可移仓）",  index=False)
 
-    # 查询销量过低SKU
-    df = pd.read_sql_query(sql_sales_to_low, conn)
-    df.to_excel(writer, u"销量过低",  index=False)
+    # 销量过低SKU
+    df = pd.read_sql_query(sql_sales_too_low, conn)
+    df.to_excel(writer, "销量过低(可移仓)",  index=False)
+
+    # 清仓商品销量
+    df = pd.read_sql_query(sql_sales_clearance, conn)
+    df.to_excel(writer, "清仓商品销量",  index=False)
+
+    # 可下架款
+    df = pd.read_sql_query(sql_off_shelf, conn)
+    # TODO：此处要加入对备注中的清仓日期判断：清仓时间在规定可时间以上才入选。目前是只要备注有清字就入选
+    df.to_excel(writer, "可下架款",  index=False)
 
     writer.save()
+
 
 
 def gen_remark_import_file():
@@ -119,7 +148,7 @@ def gen_remark_import_file():
     writer.save()
 
     # 生成销量过低备注导入文件
-    df = pd.read_sql_query(sql_sales_to_low, conn)
+    df = pd.read_sql_query(sql_sales_too_low, conn)
     df2 = pd.DataFrame()
     df2[u'商品编码'] = df['商品编码']
     df2[u'备注'] = df['备注'].map(lambda a: u'销低%d.%d, %s' %(d.month, d.day, a if a != None else ""))
