@@ -5,10 +5,13 @@ from pandas import ExcelWriter
 from pandas import ExcelFile
 from datetime import datetime, date, timedelta
 import sqlite3
+import utils
+#db_name = u'仓库.db'
+conn = None
 
-db_name = u'仓库.db'
-conn = sqlite3.connect(db_name)
-
+def init():
+    global conn
+    conn = sqlite3.connect(utils.get_db_file())
 def convert_xls_to_db(goods_file, sales_file, stock_file):
     # 处理商品表
     # 需要转换日期格式，否则sql查询日期比较会出问题。
@@ -17,7 +20,7 @@ def convert_xls_to_db(goods_file, sales_file, stock_file):
 
     def str_to_datetime(s):
         return datetime.strptime(s, "%Y/%m/%d %H:%M:%S")
-    r_date = map(str_to_datetime, date)
+    r_date = list(map(str_to_datetime, date))
     df['CreateTime'] = r_date
     df.to_sql('goods', conn, if_exists="replace")
 
@@ -58,7 +61,7 @@ sql_sales_to_low = u"""SELECT  g.商品编码, g.备注, s.[7天销量], s.[15�
         g.createTime<Date('%s')""" % (date.today() - timedelta(30))
 
 def gen_reresult_file():
-    writer = pd.ExcelWriter(u'结果.xlsx')
+    writer = pd.ExcelWriter(utils.get_output_full_file_path('结果.xlsx'))
 
     # 查询清仓SKU
     df = pd.read_sql_query(sql_clearance, conn)
@@ -107,7 +110,7 @@ def gen_remark_import_file():
 
     # 计算款数
     c = df['款式编码'].value_counts()
-    writer = pd.ExcelWriter(u'清仓备注导入-%d个款.xlsx' % c.size)
+    writer = pd.ExcelWriter(utils.get_output_full_file_path('清仓备注导入-%d个款.xlsx' % c.size))
 
     # 款式编码无需导入
     df.pop('款式编码')
@@ -121,7 +124,7 @@ def gen_remark_import_file():
     df2[u'商品编码'] = df['商品编码']
     df2[u'备注'] = df['备注'].map(lambda a: u'销低%d.%d, %s' %(d.month, d.day, a if a != None else ""))
 
-    writer = pd.ExcelWriter(u'销低备注导入-%d个SKU.xlsx' % df2[u'商品编码'].value_counts().size)
+    writer = pd.ExcelWriter(utils.get_output_full_file_path('销低备注导入-%d个SKU.xlsx' % df2[u'商品编码'].value_counts().size))
     df2.to_excel(writer,  index=False)
     writer.save()
 

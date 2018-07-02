@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 '''
 使用方法：
-main.py <goods_file>, <sales_file>, <stock_file>
+py -3 main.py <goods_file>, <sales_file>, <stock_file>
+注意用python3执行。
 goods_file:普通商品资料导出文件
 sales_file:报表=>商品主题分析导出文件
 stock_file:库存=>箱及仓位库存导出文件
@@ -18,15 +19,21 @@ import sys
 from datetime import datetime, date, timedelta
 import getopt
 import db
-
+import utils
 
 def usage():
-    print u'''
-        main.py -g <goods_file> <sales_file> <stock_file>
-        生成模式，读取文件生成数据库
+    print(u'''
+        py -3 main.py -g <working_dir> #<goods_file> <sales_file> <stock_file>
+        生成模式，读取working_dir里面的文件生成数据库。
         
-        main.py
-        计算产生结果报表'''
+        working_dir里面必须有3个文件：
+        商品资料.*.xlsx -- 普通商品资料导出文件
+        商品综合分析.*.xlsx -- 商品主题分析导出文件
+        箱及仓位库存.*.xlsx -- 箱及仓位库存导出文件
+        
+        
+        py -3 main.py <working_dir>
+        计算产生结果报表''')
 
 
 try:
@@ -39,11 +46,21 @@ for name,value in options:
     if name in ("-h","--help"):
         usage()
     if name in ("-g"):
-        if len(args) != 3:
-            print u"参数数量必须是3个"
+        if len(args) != 1:
+            print(u"参数数量必须是1个")
+            exit(-1)
         else :
-            db.convert_xls_to_db(args[0], args[1], args[2])
+            utils.set_file_dir(args[0])
+            db.init()
+            f1,f2,f3 = utils.get_source_files()
+            db.convert_xls_to_db(f1, f2, f3)
         sys.exit()
 
+if len(args) != 1:
+    print (u"参数数量必须是1个")
+    exit(-1)
+
+utils.set_file_dir(args[0])
+db.init()
 db.gen_reresult_file()
 db.gen_remark_import_file()
