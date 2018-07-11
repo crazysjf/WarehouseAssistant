@@ -40,6 +40,7 @@ sql_clearance = u"""SELECT  g.款式编码, g.商品名, sum(s.[7天销量]) as 
       Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
        t.库存类型='仓位' and
        t.数量 >0 and
+        g.备注 Not Like '%%清%%'and 
        (select sum(s1.[7天销量]) from sales s1 where s1.商品款号 = s.商品款号) = 0 and
         g.createTime<Date('%s') group by g.款式编码""" % (date.today() - timedelta(30))
 
