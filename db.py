@@ -79,15 +79,34 @@ sql_off_shelf =  u"""SELECT  g.款式编码, g.商品名, sum(s.[7天销量]) as
        (select sum(s1.[15天销量]) from sales s1 where s1.商品款号 = s.商品款号) = 0
         group by g.款式编码"""
 
-# 可移仓商品：备注为销低或者清仓的款，且仓位以"1-"或者"Q-B-"开头，以款为单位，不再补货，都可以移至清货仓
-sql_move_shelf =  u"""SELECT  g.款式编码, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime, t.仓位
-      FROM goods as g, sales as s, stock as t 
-      Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
-       t.库存类型='仓位' and
-       t.数量 >0 and
-       (g.备注 Like '%%清%%' or
-       g.备注 Like '%%销低%%')
-        group by g.款式编码"""
+
+# 可移仓款
+# 由于本次的清仓和销低还没有导入，本次处理被判断为清仓或者销低的款不在此列。
+# 如果本次清仓和销低如果需要移仓，直接看清仓和销低表即可。
+def getShelfMovableGoods():
+    '''返回dataframe'''
+
+    # 可移仓商品：备注为销低或者清仓的款，且仓位以"1-"或者"Q-B-"开头，以款为单位，不再补货，都可以移至清货仓
+    # sql =  u"""SELECT  g.款式编码, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime, t.仓位
+    #       FROM goods as g, sales as s, stock as t
+    #       Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
+    #        t.库存类型='仓位' and
+    #        t.数量 >0 and
+    #        (g.备注 Like '%%清%%' or
+    #        g.备注 Like '%%销低%%')
+    #         group by g.款式编码"""
+    sql =  u"""SELECT  g.款式编码, g.商品编码, s.[7天销量] as [7天销量汇总], s.[15天销量] as [15天销量汇总], g.备注, t.数量 as [库存汇总], g.createTime, t.仓位
+          FROM goods as g, sales as s, stock as t 
+          Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
+           t.库存类型='仓位' and
+           t.数量 >0 and
+           (g.备注 Like '%%清%%' or
+           g.备注 Like '%%销低%%')"""
+
+    df = pd.read_sql_query(sql, conn)
+    return df
+
+
 
 def gen_reresult_file():
     writer = pd.ExcelWriter(utils.get_output_full_file_path('结果.xlsx'))
@@ -133,11 +152,8 @@ def gen_reresult_file():
     # TODO：此处要加入对备注中的清仓日期判断：清仓时间在规定可时间以上才入选。目前是只要备注有清字就入选
     df.to_excel(writer, "可下架款",  index=False)
 
-    # 可移仓款
-    # 由于本次的清仓和销低还没有导入，本次处理被判断为清仓或者销低的款不在此列。
-    # 如果本次清仓和销低如果需要移仓，直接看清仓和销低表即可。
-    df = pd.read_sql_query(sql_move_shelf, conn)
 
+    df = getShelfMovableGoods()
     df.to_excel(writer, "可移仓款（不包括本次清仓和销低款）",  index=False)
 
 

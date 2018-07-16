@@ -64,5 +64,11 @@ if len(args) != 1:
 
 utils.set_file_dir(args[0])
 db.init()
-db.gen_reresult_file()
-db.gen_remark_import_file()
+#db.gen_reresult_file()
+#db.gen_remark_import_file()
+pd.options.display.max_rows = 1000
+pd.options.display.max_columns = 100
+pd.options.display.width=300
+
+df = db.getShelfMovableGoods()
+print(df)
