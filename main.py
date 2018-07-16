@@ -22,18 +22,19 @@ import db
 import utils
 
 def usage():
-    print(u'''
-        py -3 main.py -g <working_dir> #<goods_file> <sales_file> <stock_file>
-        生成模式，读取working_dir里面的文件生成数据库。
+    print('''
+py main.py -g <working_dir>
+生成模式，读取working_dir里面的文件生成数据库。
         
-        working_dir里面必须有3个文件：
-        商品资料.*.xlsx -- 普通商品资料导出文件
-        商品综合分析.*.xlsx -- 商品主题分析导出文件
-        箱及仓位库存.*.xlsx -- 箱及仓位库存导出文件
+working_dir里面必须有3个文件：
+商品资料*.xlsx -- 普通商品资料导出文件
+商品综合分析*.xlsx -- 商品主题分析导出文件
+箱及仓位库存*.xlsx -- 箱及仓位库存导出文件
         
         
-        py -3 main.py <working_dir>
-        计算产生结果报表''')
+py main.py <working_dir>
+计算产生结果报表
+''')
 
 
 try:
@@ -57,7 +58,8 @@ for name,value in options:
         sys.exit()
 
 if len(args) != 1:
-    print (u"参数数量必须是1个")
+    print ("Error: 必须有1个参数用于指定文件夹名称")
+    usage()
     exit(-1)
 
 utils.set_file_dir(args[0])
