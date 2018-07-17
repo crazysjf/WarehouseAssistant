@@ -8,6 +8,7 @@ import sqlite3
 import utils
 #db_name = u'仓库.db'
 conn = None
+import re
 
 def init():
     global conn
@@ -86,24 +87,46 @@ sql_off_shelf =  u"""SELECT  g.款式编码, g.商品名, sum(s.[7天销量]) as
 def getShelfMovableGoods():
     '''返回dataframe'''
 
-    # 可移仓商品：备注为销低或者清仓的款，且仓位以"1-"或者"Q-B-"开头，以款为单位，不再补货，都可以移至清货仓
-    # sql =  u"""SELECT  g.款式编码, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime, t.仓位
-    #       FROM goods as g, sales as s, stock as t
-    #       Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
-    #        t.库存类型='仓位' and
-    #        t.数量 >0 and
-    #        (g.备注 Like '%%清%%' or
-    #        g.备注 Like '%%销低%%')
-    #         group by g.款式编码"""
-    sql =  u"""SELECT  g.款式编码, g.商品编码, s.[7天销量] as [7天销量汇总], s.[15天销量] as [15天销量汇总], g.备注, t.数量 as [库存汇总], g.createTime, t.仓位
+    # 查找所有备注里面有“清”、“收”、“销低”（统称为关键词）的款号
+    sql =  u"""SELECT  g.款式编码, g.商品编码, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime, t.仓位
           FROM goods as g, sales as s, stock as t 
           Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
            t.库存类型='仓位' and
            t.数量 >0 and
            (g.备注 Like '%%清%%' or
-           g.备注 Like '%%销低%%')"""
-
+           g.备注 Like '%%销低%%' or
+           g.备注 Like '%%收%%')
+           group by g.款式编码"""
     df = pd.read_sql_query(sql, conn)
+
+    # 只有所有SKU的备注中都包含有关键词，整个款才能被移仓。
+    # 筛掉只部分SKU包含关键词的款。
+    for code in df['款式编码']:
+        sql2 = """SELECT 款式编码, 商品编码, 备注 
+        FROM goods 
+        WHERE 款式编码='%s'""" % (code)
+        df2 = pd.read_sql_query(sql2, conn)
+        isMovable = True
+        for n in df2['备注']:
+            # 以防备注为None，后续in判断出现异常
+            if n == None:
+                n = ""
+
+            if (not '清' in n) and \
+                (not '销低' in n) and \
+                (not '收' in n):
+                isMovable = False
+
+        # 过滤掉不可移动的款号
+        if not isMovable:
+            df = df.loc[df['款式编码'] != code]
+
+    # 过滤掉仓位以"Q-"+数字开头的
+    df = df[df['仓位'].map(lambda c: True if re.match(r'^Q-[0-9]+-.*',c) == None else False)]
+
+    # 删掉商品编码列
+    df.drop('商品编码', axis = 1, inplace=True)
+
     return df
 
 
