@@ -71,7 +71,7 @@ sql_sales_clearance = u"""SELECT  g.商品编码, g.备注, s.[7天销量], s.[1
        g.备注 Like '%%清%%'"""
 
 # 可下架商品：清仓已经15天且无15天内无销量的款，此处仅选出清仓且15天销量为0的款，具体清了多少时间要选出后在筛选
-sql_off_shelf =  u"""SELECT  g.款式编码, g.商品名, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime
+sql_off_shelf =  u"""SELECT  g.款式编码, g.商品名, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime, t.仓位
       FROM goods as g, sales as s, stock as t 
       Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
        t.库存类型='仓位' and
@@ -121,8 +121,8 @@ def getShelfMovableGoods():
         if not isMovable:
             df = df.loc[df['款式编码'] != code]
 
-    # 过滤掉仓位以"Q-"+数字开头的
-    df = df[df['仓位'].map(lambda c: True if re.match(r'^Q-[0-9]+-.*',c) == None else False)]
+    # 过滤掉仓位以"Q-Q-"+数字开头的
+    df = df[df['仓位'].map(lambda c: True if re.match(r'^Q-Q-[0-9]+-.*',c) == None else False)]
 
     # 删掉商品编码列
     df.drop('商品编码', axis = 1, inplace=True)
