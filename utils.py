@@ -15,7 +15,7 @@ def get_source_files():
     '''
     在dir里面找到3个xlsx文件并返回路径
     :param dir: 
-    :return: (商品资料文件, 销量文件, 库存文件)。如果失败返回None
+    :return: (商品资料文件, 销量文件, 库存文件, 淘宝助理导出文件)。如果失败返回None
     '''
     if FILE_DIR == None:
         print("路径未设定")
@@ -24,6 +24,7 @@ def get_source_files():
     goods_file = None
     sales_file = None
     stock_file = None
+    tb_assistant_file = None
 
     fs = os.listdir(FILE_DIR)
     for f in fs:
@@ -39,9 +40,14 @@ def get_source_files():
         if m != None:
             stock_file = f
 
-    r =  (goods_file, sales_file, stock_file)
+        m = re.match('淘宝助理.*\.xlsx$', f)
+        if m != None:
+            tb_assistant_file = f
+
+
+    r =  (goods_file, sales_file, stock_file, tb_assistant_file)
     r = list(map(lambda f: os.path.join(FILE_DIR, f),r))
-    file_meaning = ("商品文件", "销量文件", "库存问价")
+    file_meaning = ("商品文件", "销量文件", "库存问价", "淘宝助理导出文件")
     for i, f in enumerate(r):
         if f == None:
             print("找不到%s" % file_meaning[i])

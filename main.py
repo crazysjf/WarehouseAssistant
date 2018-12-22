@@ -53,8 +53,11 @@ for name,value in options:
         else :
             utils.set_file_dir(args[0])
             db.init()
-            f1,f2,f3 = utils.get_source_files()
-            db.convert_xls_to_db(f1, f2, f3)
+            f1,f2,f3,f4 = utils.get_source_files()
+            db.convert_xls_to_db(f1, f2, f3, f4)
+            # 判断是否有淘宝助手文件
+
+
         sys.exit()
 
 if len(args) != 1:

@@ -13,7 +13,8 @@ import re
 def init():
     global conn
     conn = sqlite3.connect(utils.get_db_file())
-def convert_xls_to_db(goods_file, sales_file, stock_file):
+
+def convert_xls_to_db(goods_file, sales_file, stock_file, tb_assistant_file):
     # 处理商品表
     # 需要转换日期格式，否则sql查询日期比较会出问题。
     df = pd.read_excel(goods_file)
@@ -32,6 +33,11 @@ def convert_xls_to_db(goods_file, sales_file, stock_file):
     # 处理库存列表
     df = pd.read_excel(stock_file)
     df.to_sql('stock', conn, if_exists="replace")
+
+    # 处理淘宝助理文件
+    if tb_assistant_file != None:
+        df = pd.read_excel(tb_assistant_file)
+        df.to_sql('tb_assistant', conn, if_exists="replace")
 
 
 # 半价清仓
@@ -79,6 +85,15 @@ sql_off_shelf =  u"""SELECT  g.款式编码, g.商品名, sum(s.[7天销量]) as
        g.备注 Like '%%清%%' and
        (select sum(s1.[15天销量]) from sales s1 where s1.商品款号 = s.商品款号) = 0
         group by g.款式编码"""
+
+
+# 有库存未上架商品：有库存，但是线上状态为已下架
+sql_not_on_shelf =  u"""SELECT t.款式编码, sum(t.数量) as [库存汇总],  t.仓位, ta.放入仓库 as 是否下架
+      FROM stock as t, tb_assistant as ta 
+      Where t.款式编码=ta.商家编码 and
+       t.库存类型='仓位' and
+       ta.放入仓库=2
+       group by t.款式编码"""
 
 
 # 可移仓款
@@ -178,6 +193,14 @@ def gen_reresult_file():
 
     df = getShelfMovableGoods()
     df.to_excel(writer, "可移仓款（不包括本次清仓和销低款）",  index=False)
+
+
+    # 有库存未上架款
+    try:
+        df = pd.read_sql_query(sql_not_on_shelf, conn)
+        df.to_excel(writer, "有库存未上架款", index=False)
+    except:
+        pass
 
 
     writer.save()
