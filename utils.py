@@ -46,7 +46,7 @@ def get_source_files():
 
 
     r =  (goods_file, sales_file, stock_file, tb_assistant_file)
-    r = list(map(lambda f: os.path.join(FILE_DIR, f),r))
+    r = list(map(lambda f: os.path.join(FILE_DIR, f) if f != None else None,r))
     file_meaning = ("商品文件", "销量文件", "库存问价", "淘宝助理导出文件")
     for i, f in enumerate(r):
         if f == None:
