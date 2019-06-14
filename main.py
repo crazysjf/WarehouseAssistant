@@ -38,34 +38,41 @@ py main.py <working_dir>
 
 
 try:
-    options,args = getopt.getopt(sys.argv[1:],"hg",["help"])
+    options,args = getopt.getopt(sys.argv[1:],"thg",["help"])
 except getopt.GetoptError:
     usage()
     sys.exit()
 
-for name,value in options:
-    if name in ("-h","--help"):
-        usage()
-    if name in ("-g"):
-        if len(args) != 1:
-            print(u"参数数量必须是1个")
-            exit(-1)
-        else :
-            utils.set_file_dir(args[0])
-            db.init()
-            f1,f2,f3,f4 = utils.get_source_files()
-            db.convert_xls_to_db(f1, f2, f3, f4)
-            # 判断是否有淘宝助手文件
-
-
-        sys.exit()
-
 if len(args) != 1:
-    print ("Error: 必须有1个参数用于指定文件夹名称")
+    print("Error: 必须有1个参数用于指定文件夹名称")
     usage()
     exit(-1)
 
 utils.set_file_dir(args[0])
-db.init()
-db.gen_reresult_file()
-db.gen_remark_import_file()
+
+if len(options) != 0:
+    for name,value in options:
+        if name in ("-h","--help"):
+            usage()
+        elif name in ("-g"):
+            # 生成模式
+            if len(args) != 1:
+                print(u"参数数量必须是1个")
+                exit(-1)
+            else :
+                db.init()
+                f1,f2,f3,f4 = utils.get_source_files()
+                db.convert_xls_to_db(f1, f2, f3, f4)
+                # 判断是否有淘宝助手文件
+                exit(0)
+        elif name in ("-t"):
+            db.get_multi_goods_in_one_slot()
+
+
+
+else:
+    utils.set_file_dir(args[0])
+    db.init()
+    db.gen_reresult_file()
+    db.gen_remark_import_file()
+    exit(0)

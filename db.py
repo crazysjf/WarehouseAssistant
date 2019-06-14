@@ -144,7 +144,40 @@ def getShelfMovableGoods():
 
     return df
 
+def get_multi_goods_in_one_slot():
+    '''
+    获取一仓多货情况。
+    
+    :return: 描述一仓多货情况的df
+    '''
+    result_df = pd.DataFrame(columns=['仓位','款号'])
 
+    _, _, stock_file, _ = utils.get_source_files()
+    df = pd.read_excel(stock_file)
+
+    # 仅保留库存类型为仓位的行
+    df = df.loc[df['库存类型']=='仓位']
+
+    # 去重后的仓位列表
+    slots = df['仓位'].unique()
+    for s in slots:
+        tmp = df.loc[df['仓位']==s]
+        # 同一仓位的所有商品编码
+        codes = tmp['商品编码']
+
+        # 返回款号：需要考虑带尺码的情况
+        def split_code(s):
+            m = re.match(r'(.*)-[^-SMLXsmlx]+(-[SMLXsmlx]+)*$', s)
+            if m != None:
+                return m.group(1)
+            else:
+                return s
+
+        style_codes = set(map(split_code, codes))
+        if len(style_codes) > 1:
+            result_df = result_df.append({'仓位':s, '款号':style_codes}, ignore_index=True)
+
+    return result_df
 
 def gen_reresult_file():
     writer = pd.ExcelWriter(utils.get_output_full_file_path('结果.xlsx'))
@@ -202,6 +235,9 @@ def gen_reresult_file():
     except:
         pass
 
+    # 一仓多货
+    df = get_multi_goods_in_one_slot()
+    df.to_excel(writer, "一仓多货",  index=False)
 
     writer.save()
 
