@@ -88,12 +88,12 @@ sql_off_shelf =  u"""SELECT  g.款式编码, g.商品名, sum(s.[7天销量]) as
 
 
 # 有库存未上架商品：有库存，但是线上状态为已下架
-sql_not_on_shelf =  u"""SELECT t.款式编码, sum(t.数量) as [库存汇总],  t.仓位, ta.放入仓库 as 是否下架
-      FROM stock as t, tb_assistant as ta 
-      Where t.款式编码=ta.商家编码 and
+sql_not_on_shelf =  u"""SELECT g.款式编码, sum(t.数量) as [库存汇总],  t.仓位, ta.放入仓库 as 是否下架
+      FROM stock as t, tb_assistant as ta, goods as g 
+      Where t.商品编码=g.商品编码 and g.款式编码=ta.商家编码 and 
        t.库存类型='仓位' and
        ta.放入仓库=2
-       group by t.款式编码"""
+       group by g.款式编码"""
 
 
 # 可移仓款
