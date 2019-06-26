@@ -43,7 +43,7 @@ def convert_xls_to_db(goods_file, sales_file, stock_file, tb_assistant_file):
 # 各操作判断标准参考readme.txt
 
 # 半价清仓
-sql_clearance = u"""SELECT  g.款式编码, g.商品名, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime
+sql_clearance = u"""SELECT  g.款式编码, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime
       FROM goods as g, sales as s, stock as t 
       Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
        t.库存类型='仓位' and
@@ -96,51 +96,69 @@ sql_not_on_shelf =  u"""SELECT g.款式编码, sum(t.数量) as [库存汇总], 
        group by g.款式编码"""
 
 
+# # 可移仓款
+# # 由于本次的清仓和销低还没有导入，本次处理被判断为清仓或者销低的款不在此列。
+# # 如果本次清仓和销低如果需要移仓，直接看清仓和销低表即可。
+# def getShelfMovableGoods():
+#     '''返回dataframe'''
+#
+#     # 查找所有备注里面有“清”、“收”、“销低”（统称为关键词）的款号
+#     sql =  u"""SELECT  g.款式编码, g.商品编码, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime, t.仓位
+#           FROM goods as g, sales as s, stock as t
+#           Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
+#            t.库存类型='仓位' and
+#            t.数量 >0 and
+#            (g.备注 Like '%%清%%' or
+#            g.备注 Like '%%销低%%' or
+#            g.备注 Like '%%收%%')
+#            group by g.款式编码"""
+#     df = pd.read_sql_query(sql, conn)
+#
+#     # 只有所有SKU的备注中都包含有关键词，整个款才能被移仓。
+#     # 筛掉只部分SKU包含关键词的款。
+#     for code in df['款式编码']:
+#         sql2 = """SELECT 款式编码, 商品编码, 备注
+#         FROM goods
+#         WHERE 款式编码='%s'""" % (code)
+#         df2 = pd.read_sql_query(sql2, conn)
+#         isMovable = True
+#         for n in df2['备注']:
+#             # 以防备注为None，后续in判断出现异常
+#             if n == None:
+#                 n = ""
+#
+#             if (not '清' in n) and \
+#                 (not '销低' in n) and \
+#                 (not '收' in n):
+#                 isMovable = False
+#
+#         # 过滤掉不可移动的款号
+#         if not isMovable:
+#             df = df.loc[df['款式编码'] != code]
+#
+#     # 过滤掉仓位以"Q-Q-"+数字开头的
+#     df = df[df['仓位'].map(lambda c: True if re.match(r'^Q-Q-[0-9]+-.*',c) == None else False)]
+#
+#     # 删掉商品编码列
+#     df.drop('商品编码', axis = 1, inplace=True)
+#
+#     return df
+
 # 可移仓款
-# 由于本次的清仓和销低还没有导入，本次处理被判断为清仓或者销低的款不在此列。
-# 如果本次清仓和销低如果需要移仓，直接看清仓和销低表即可。
 def getShelfMovableGoods():
     '''返回dataframe'''
 
-    # 查找所有备注里面有“清”、“收”、“销低”（统称为关键词）的款号
-    sql =  u"""SELECT  g.款式编码, g.商品编码, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime, t.仓位
+    # 查找所有备注里面有“清”（统称为关键词）的款号
+    sql =  u"""SELECT  g.款式编码, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime, t.仓位
           FROM goods as g, sales as s, stock as t 
           Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
            t.库存类型='仓位' and
            t.数量 >0 and
-           (g.备注 Like '%%清%%' or
-           g.备注 Like '%%销低%%' or
-           g.备注 Like '%%收%%')
+           t.仓位 not like 'Q-Q-%%' and
+           g.备注 Like '%%清%%' 
            group by g.款式编码"""
     df = pd.read_sql_query(sql, conn)
 
-    # 只有所有SKU的备注中都包含有关键词，整个款才能被移仓。
-    # 筛掉只部分SKU包含关键词的款。
-    for code in df['款式编码']:
-        sql2 = """SELECT 款式编码, 商品编码, 备注 
-        FROM goods 
-        WHERE 款式编码='%s'""" % (code)
-        df2 = pd.read_sql_query(sql2, conn)
-        isMovable = True
-        for n in df2['备注']:
-            # 以防备注为None，后续in判断出现异常
-            if n == None:
-                n = ""
-
-            if (not '清' in n) and \
-                (not '销低' in n) and \
-                (not '收' in n):
-                isMovable = False
-
-        # 过滤掉不可移动的款号
-        if not isMovable:
-            df = df.loc[df['款式编码'] != code]
-
-    # 过滤掉仓位以"Q-Q-"+数字开头的
-    df = df[df['仓位'].map(lambda c: True if re.match(r'^Q-Q-[0-9]+-.*',c) == None else False)]
-
-    # 删掉商品编码列
-    df.drop('商品编码', axis = 1, inplace=True)
 
     return df
 
@@ -188,7 +206,7 @@ def gen_reresult_file():
     # 数据保存至DB中，供之后查询使用
     # pandas的to_sql有bug，此时不能使用含有中文的列名，必须替换为英文名。参考：https://stackoverflow.com/questions/33337798/unicodeencodeerror-when-using-pandas-method-to-sql-on-a-dataframe-with-unicode-c
     df2 = df.copy()
-    df2.columns = ['code', 'name', 'sum_7', 'sum_15', 'notes', 'sum_stock', 'createTime']
+    df2.columns = ['code',  'sum_7', 'sum_15', 'notes', 'sum_stock', 'createTime']
     df2.to_sql('clearance', conn, if_exists="replace")
 
     # 把所有仓位对应上去
@@ -225,7 +243,7 @@ def gen_reresult_file():
 
 
     df = getShelfMovableGoods()
-    df.to_excel(writer, "可移仓款（不包括本次清仓和销低款）",  index=False)
+    df.to_excel(writer, "可移仓款（不包括本次清仓款）",  index=False)
 
 
     # 有库存未上架款
