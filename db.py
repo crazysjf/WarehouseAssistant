@@ -40,20 +40,20 @@ def convert_xls_to_db(goods_file, sales_file, stock_file, tb_assistant_file):
         df.to_sql('tb_assistant', conn, if_exists="replace")
 
 
+# 各操作判断标准参考readme.txt
+
 # 半价清仓
-# 上架超过30天，所有SKU的7天销量为0的宝贝，以款为单位，不是以SKU为单位
 sql_clearance = u"""SELECT  g.款式编码, g.商品名, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime
       FROM goods as g, sales as s, stock as t 
       Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
        t.库存类型='仓位' and
        t.数量 >0 and
         g.备注 Not Like '%%清%%'and 
-       (select sum(s1.[7天销量]) from sales s1 where s1.商品款号 = s.商品款号) = 0 and
+       (select sum(s1.[7天销量]) from sales s1 where s1.商品款号 = s.商品款号) < 2 and
         g.createTime<Date('%s') group by g.款式编码""" % (date.today() - timedelta(30))
 
-#
+
 # 销量过低SKU
-# 上架超过30天，周销<=2，15天销量<=5，且不包括在清仓处理中 的SKU
 sql_sales_too_low = u"""SELECT  g.商品编码, g.备注, s.[7天销量], s.[15天销量], t.数量,  g.createTime, t.仓位
       FROM goods as g, sales as s, stock as t
       Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
@@ -76,7 +76,7 @@ sql_sales_clearance = u"""SELECT  g.商品编码, g.备注, s.[7天销量], s.[1
        (s.[7天销量] > 0 or s.[15天销量] > 0) and 
        g.备注 Like '%%清%%'"""
 
-# 可下架商品：清仓已经15天且无15天内无销量的款，此处仅选出清仓且15天销量为0的款，具体清了多少时间要选出后在筛选
+# 可下架商品
 sql_off_shelf =  u"""SELECT  g.款式编码, g.商品名, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime, t.仓位
       FROM goods as g, sales as s, stock as t 
       Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
@@ -212,7 +212,7 @@ def gen_reresult_file():
 
     # 销量过低SKU
     df = pd.read_sql_query(sql_sales_too_low, conn)
-    df.to_excel(writer, "销量过低(可移仓)",  index=False)
+    df.to_excel(writer, "销量过低",  index=False)
 
     # 清仓商品销量
     df = pd.read_sql_query(sql_sales_clearance, conn)
@@ -252,7 +252,7 @@ def gen_remark_import_file():
     # 在备注前加入"清6.7，"字样
     d = datetime.now()
     # 数据库中读出的dataframe列名不能使用unicode做索引
-    df['备注'] = df['备注'].map(lambda a: u'清%d.%d, %s' %(d.month, d.day, a if a != None else ""))
+    df['备注'] = df['备注'].map(lambda a: u'清%d.%d.%d, %s' %(d.year % 2000, d.month, d.day, a if a != None else ""))
 
     # 计算款数
     c = df['款式编码'].value_counts()
@@ -268,7 +268,7 @@ def gen_remark_import_file():
     df = pd.read_sql_query(sql_sales_too_low, conn)
     df2 = pd.DataFrame()
     df2[u'商品编码'] = df['商品编码']
-    df2[u'备注'] = df['备注'].map(lambda a: u'销低%d.%d, %s' %(d.month, d.day, a if a != None else ""))
+    df2[u'备注'] = df['备注'].map(lambda a: u'销低%d.%d.%d, %s' %(d.year % 2000, d.month, d.day, a if a != None else ""))
 
     writer = pd.ExcelWriter(utils.get_output_full_file_path('销低备注导入-%d个SKU.xlsx' % df2[u'商品编码'].value_counts().size))
     df2.to_excel(writer,  index=False)
