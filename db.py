@@ -163,6 +163,21 @@ def getShelfMovableGoods():
 
     return df
 
+
+
+def split_code(s):
+    ''' 
+    提供商品编码，返回款号：需要考虑带尺码的情况
+    例：
+    11141-5260-蓝 => 11141-5260
+    13C046-6629-绿-2XL => 13C046-6629
+    '''
+    m = re.match(r'(.*)-[^-SMLXsmlx]+(-[1-9SMLXsmlx]+)*$', s)
+    if m != None:
+        return m.group(1)
+    else:
+        return s
+
 def get_multi_goods_in_one_slot():
     '''
     获取一仓多货情况。
@@ -184,21 +199,43 @@ def get_multi_goods_in_one_slot():
         # 同一仓位的所有商品编码
         codes = tmp['商品编码']
 
-        # 返回款号：需要考虑带尺码的情况
-        def split_code(s):
-            m = re.match(r'(.*)-[^-SMLXsmlx]+(-[1-9SMLXsmlx]+)*$', s)
-            if m != None:
-                return m.group(1)
-            else:
-                return s
-
         style_codes = set(map(split_code, codes))
         if len(style_codes) > 1:
             result_df = result_df.append({'仓位':s, '款号':style_codes}, ignore_index=True)
 
     return result_df
 
+def get_one_good_in_multiple_slots():
+    '''获取一货多仓的情况'''
 
+    _, _, stock_file, _ = utils.get_source_files()
+    df = pd.read_excel(stock_file)
+
+    # 仅保留库存类型为仓位的行
+    df = df.loc[df['库存类型']=='仓位']
+
+    #good_codes = df['商品编码'] # 商品编码列表
+
+    dict = {}
+    for idx, row in df.iterrows():
+        style_code = split_code(row['商品编码'])
+
+        if style_code in dict:
+            #print(dict, style_code)
+            dict[style_code].add(row['仓位'])
+        else:
+            s = set()
+            s.add(row['仓位'])
+            dict[style_code] = s
+
+    result_df = pd.DataFrame(columns=['款号','仓位'])
+    for k in dict.keys():
+        if len(dict[k]) > 1:
+            slots = ""
+            for e in dict[k]:
+                slots = slots + e + ',' # 连接多个仓位
+            result_df = result_df.append({'款号': k, '仓位': slots }, ignore_index=True)
+    return result_df
 
 
 
@@ -261,6 +298,10 @@ def gen_reresult_file():
     # 一仓多货
     df = get_multi_goods_in_one_slot()
     df.to_excel(writer, "一仓多货",  index=False)
+
+    # 一货多仓
+    df = get_one_good_in_multiple_slots()
+    df.to_excel(writer, "一货多仓",  index=False)
 
     writer.save()
 

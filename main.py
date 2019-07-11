@@ -75,4 +75,7 @@ else:
     db.init()
     db.gen_reresult_file()
     db.gen_remark_import_file()
+
+    # for dev test
+    #db.get_one_good_in_multiple_slots()
     exit(0)
