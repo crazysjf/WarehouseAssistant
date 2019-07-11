@@ -36,7 +36,8 @@ def convert_xls_to_db(goods_file, sales_file, stock_file, tb_assistant_file):
 
     # 处理淘宝助理文件
     if tb_assistant_file != None:
-        df = pd.read_excel(tb_assistant_file)
+        df = pd.read_excel(tb_assistant_file, header=2) # 忽略掉前两行
+        df = df.loc[:,['放入仓库','商家编码']] # 仅保留2列
         df.to_sql('tb_assistant', conn, if_exists="replace")
 
 
@@ -87,12 +88,12 @@ sql_off_shelf =  u"""SELECT  g.款式编码, g.商品名, sum(s.[7天销量]) as
         group by g.款式编码"""
 
 
-# 有库存未上架商品：有库存，但是线上状态为已下架
+# 有库存未上架商品：有库存，但是线上状态为已下架，或者淘宝助理里面没有资料
 sql_not_on_shelf =  u"""SELECT g.款式编码, sum(t.数量) as [库存汇总],  t.仓位, ta.放入仓库 as 是否下架
       FROM stock as t, tb_assistant as ta, goods as g 
       Where t.商品编码=g.商品编码 and g.款式编码=ta.商家编码 and 
        t.库存类型='仓位' and
-       ta.放入仓库=2
+       (ta.放入仓库=2 or g.款式编码 not in (select 商家编码 from tb_assistant))
        group by g.款式编码"""
 
 
@@ -185,7 +186,7 @@ def get_multi_goods_in_one_slot():
 
         # 返回款号：需要考虑带尺码的情况
         def split_code(s):
-            m = re.match(r'(.*)-[^-SMLXsmlx]+(-[SMLXsmlx]+)*$', s)
+            m = re.match(r'(.*)-[^-SMLXsmlx]+(-[1-9SMLXsmlx]+)*$', s)
             if m != None:
                 return m.group(1)
             else:
@@ -196,6 +197,10 @@ def get_multi_goods_in_one_slot():
             result_df = result_df.append({'仓位':s, '款号':style_codes}, ignore_index=True)
 
     return result_df
+
+
+
+
 
 def gen_reresult_file():
     writer = pd.ExcelWriter(utils.get_output_full_file_path('结果.xlsx'))
