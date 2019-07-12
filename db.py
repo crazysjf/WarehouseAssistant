@@ -88,13 +88,28 @@ sql_off_shelf =  u"""SELECT  g.款式编码, g.商品名, sum(s.[7天销量]) as
         group by g.款式编码"""
 
 
-# 有库存未上架商品：有库存，但是线上状态为已下架，或者淘宝助理里面没有资料
+# 有库存未上架商品：有库存，但是线上状态为已下架
 sql_not_on_shelf =  u"""SELECT g.款式编码, sum(t.数量) as [库存汇总],  t.仓位, ta.放入仓库 as 是否下架
       FROM stock as t, tb_assistant as ta, goods as g 
       Where t.商品编码=g.商品编码 and g.款式编码=ta.商家编码 and 
        t.库存类型='仓位' and
-       (ta.放入仓库=2 or g.款式编码 not in (select 商家编码 from tb_assistant))
+       ta.放入仓库=2
        group by g.款式编码"""
+
+# 有库存无编码款(要重点检查，一般是编码出了问题)
+sql_has_stock_no_code =  u"""SELECT t.商品编码,   t.仓位, t.数量
+      FROM stock as t
+      Where t.库存类型='仓位' and
+      t.商品编码 not in (select 商品编码 from goods)"""
+
+# 有库存有编码但淘宝无编码(需要排查，可能是商品下载后商品编码做了修改导致）
+sql_has_stock_no_tb_code =  u"""SELECT t.商品编码,   t.仓位, t.数量
+      FROM stock as t,  goods as g 
+      Where 
+      t.库存类型='仓位' and 
+      t.商品编码=g.商品编码 and 
+      g.款式编码 not in (select 商家编码 from tb_assistant)
+      """
 
 
 # # 可移仓款
@@ -302,6 +317,14 @@ def gen_reresult_file():
     # 一货多仓
     df = get_one_good_in_multiple_slots()
     df.to_excel(writer, "一货多仓",  index=False)
+
+    # 有库存无商品编码（一般是编码错误但是上了架）
+    df = pd.read_sql_query(sql_has_stock_no_code, conn)
+    df.to_excel(writer, "有库存无编码",  index=False)
+
+    # 有库存无商品编码（需要排查，可能是下载商品资料后改了商品编码导致）
+    df = pd.read_sql_query(sql_has_stock_no_tb_code, conn)
+    df.to_excel(writer, "有库存有聚编码无淘编码", index=False)
 
     writer.save()
 
