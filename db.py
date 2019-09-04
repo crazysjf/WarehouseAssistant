@@ -304,7 +304,7 @@ def gen_reresult_file():
 
 
     # 有库存未上架款
-    try:
+    try: # 如果没有淘宝助理文件，会报异常，直接忽略即可
         df = pd.read_sql_query(sql_not_on_shelf, conn)
         df.to_excel(writer, "有库存未上架款", index=False)
     except:
@@ -323,8 +323,11 @@ def gen_reresult_file():
     df.to_excel(writer, "有库存无编码",  index=False)
 
     # 有库存无商品编码（需要排查，可能是下载商品资料后改了商品编码导致）
-    df = pd.read_sql_query(sql_has_stock_no_tb_code, conn)
-    df.to_excel(writer, "有库存有聚编码无淘编码", index=False)
+    try:
+        df = pd.read_sql_query(sql_has_stock_no_tb_code, conn)
+        df.to_excel(writer, "有库存有聚编码无淘编码", index=False)
+    except:
+        pass
 
     writer.save()
 
