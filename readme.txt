@@ -1,5 +1,5 @@
 
-# 使用方法
+# 仓管助手：使用方法
 
 goods_file:普通商品资料导出文件
 sales_file:报表=>商品主题分析导出文件
@@ -47,5 +47,4 @@ Join And Merge Pandas Dataframe：https://chrisalbon.com/python/data_wrangling/p
 
  - 清仓判断：本身备注有清字的不纳入清仓范围
  - 下架判断：清仓1周以上，整个款都没有销量的，做下架处理
-
 
