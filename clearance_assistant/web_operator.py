@@ -6,7 +6,15 @@ from selenium.webdriver.common.keys import Keys
 import clearance_assistant.utils as utils
 import time
 
-class WebOperator():
+class Singleton(object):
+    _instance = None
+    def __new__(cls, *args, **kw):
+        if not cls._instance:
+            cls._instance = super(Singleton, cls).__new__(cls, *args, **kw)
+        return cls._instance
+
+
+class WebOperator(Singleton):
     def __init__(self):
         chrome_options = Options()
         chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
@@ -60,3 +68,46 @@ class WebOperator():
         summit_button.click()
 
         return (orig_price, clearance_price)
+
+    def cjdz_start_operation(self):
+        # 进入批量修改类目界面
+        self._driver.get("https://qnxg.superboss.cc/index.html#/index/index/?type=6")
+
+        # 切换到“勾选商品”tab，等3秒
+        tab = self._driver.find_element_by_css_selector('div[data-type="commodity"]')
+        tab.click()
+        time.sleep(3)
+
+    def cjdz_check_one_good(self, code):
+        """
+        勾选一个商品
+        :param code: 
+        :return: 成功勾选返回True，找不到返回False
+        """
+        search_box_ele = self._driver.find_element_by_css_selector('div.search input[name="searchbar"')
+
+        search_box_ele.clear()
+        search_box_ele.send_keys(code + Keys.RETURN)
+
+        # 页面使用ajax加载，警告框似乎一直存在，此处只能等待
+        time.sleep(1)
+
+        # 判断是不是找不到任何宝贝
+        status_div = None
+        # 暂时取消隐式超时，因为需要立马返回查找元素的结果
+        self._driver.implicitly_wait(0)
+
+        try:
+            status_div = self._driver.find_element_by_css_selector("div.listContent div.next-status-content")
+        except:
+            pass
+
+        self._driver.implicitly_wait(10)
+
+        # status_div如果存在表明没有找到任何宝贝
+        if status_div != None:
+            return False
+
+        checkbox = self._driver.find_element_by_css_selector("div.listContent i.next-icon")
+        checkbox.click()
+        return True

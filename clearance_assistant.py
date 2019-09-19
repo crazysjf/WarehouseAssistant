@@ -24,90 +24,122 @@ file = dir + "//结果//结果.xlsx"
 wb = load_workbook(file)
 ws = wb['半价清仓（可移仓）']
 
-# 插入原价列和清仓价列
-orig_price_cn = utils.ws_get_column_cn(ws, "原价")
-if orig_price_cn == None:
-    ws.cell(row=1, column=ws.max_column + 1).value = "原价"
-    orig_price_cn = ws.max_column + 1
+def process_meizhe():
+    print("浏览器启动命令： chrome.exe --remote-debugging-port=9222 --user-data-dir=remote-profile")
+    input("确保美折已在浏览器中登录。按任意键继续...")
 
 
-clearance_price_cn = utils.ws_get_column_cn(ws, "清仓价")
-if clearance_price_cn == None:
-    ws.cell(row=1, column=ws.max_column + 1).value = "清仓价"
-    clearance_price_cn = ws.max_column + 1
+    # 插入原价列和清仓价列
+    orig_price_cn = utils.ws_get_column_cn(ws, "原价")
+    if orig_price_cn == None:
+        ws.cell(row=1, column=ws.max_column + 1).value = "原价"
+        orig_price_cn = ws.max_column + 1
 
-wo = web_operator.WebOperator()
-wo.meizhe_start_operation()
+    clearance_price_cn = utils.ws_get_column_cn(ws, "清仓价")
+    if clearance_price_cn == None:
+        ws.cell(row=1, column=ws.max_column + 1).value = "清仓价"
+        clearance_price_cn = ws.max_column + 1
+
+    wo = web_operator.WebOperator()
+    wo.meizhe_start_operation()
+
+    for i in range(2, ws.max_row + 1):
+        code = ws.cell(row=i, column=1).value
+
+        # 仅处理清仓价不为空的行
+        clearance_price = ws.cell(row=i, column=clearance_price_cn).value
+        if clearance_price != None:
+            continue
+
+        print("正要设置：%d行，%s，按任意键继续：" % (i, code))
+        input()
+
+        ret = wo.meizhe_set_clearance_price_for_one_good(code)
+        if ret == None:
+            print("未找到商品")
+            (orig_price, clearance_price) = ("未找到", "未找到")
+        else:
+            print("原价：%.2f，清仓价：%d" % (ret))
+            (orig_price, clearance_price) = ret
+        ws.cell(row=i, column=orig_price_cn).value = orig_price
+        ws.cell(row=i, column=clearance_price_cn).value = clearance_price
+
+        while (True):
+            try:
+                wb.save(file)
+                break
+            except IOError:
+                input("文件无法保存，关掉其他应用后重试")
 
 
-for i in range(2, ws.max_row + 1):
-    code = ws.cell(row=i, column=1).value
+def process_cjdz():
+    print("浏览器启动命令： chrome.exe --remote-debugging-port=9222 --user-data-dir=remote-profile")
+    input("确保超级店长已在浏览器中登录。按任意键继续...")
 
-    # 仅处理清仓价不为空的行
-    clearance_price = ws.cell(row=i, column=clearance_price_cn).value
-    if clearance_price != None:
-        continue
+    # excel表中插入“类目设置”列
+    catagory_set_cn = utils.ws_get_column_cn(ws, "类目设置")
+    if catagory_set_cn == None:
+        ws.cell(row=1, column=ws.max_column + 1).value = "类目设置"
+        catagory_set_cn = ws.max_column + 1
 
-    print("正要设置：%d行，%s，按任意键继续：" % (i, code))
-    input()
+    wo = web_operator.WebOperator()
+    wo.cjdz_start_operation()
 
-    ret = wo.meizhe_set_clearance_price_for_one_good(code)
-    if ret == None:
-        print("未找到商品")
-        (orig_price, clearance_price) = ("未找到", "未找到")
+    for i in range(2, ws.max_row + 1):
+        code = ws.cell(row=i, column=1).value
+
+        # 仅处类目设置不为空的行
+        catagory_set = ws.cell(row=i, column=catagory_set_cn).value
+        if catagory_set != None:
+            continue
+
+        print("正要设置：%d行，%s，按任意键继续：" % (i, code))
+        input()
+
+        ret = wo.cjdz_check_one_good(code)
+
+        v = "未找到"
+        if ret == False:
+            print("未找到商品")
+        else:
+            print("已勾选")
+            v = 1
+
+        ws.cell(row=i, column=catagory_set_cn).value = v
+
+        while (True):
+            try:
+                wb.save(file)
+                break
+            except IOError:
+                input("文件无法保存，关掉其他应用后重试")
+
+def help():
+    print(
+"""命令帮助：
+ h: 显示该帮助
+ mz: 在美折中设置价格
+ cjdz: 在超级店长中设置类目
+ q: 退出
+ """)
+
+
+while True:
+    cmd = input("输入命令(h：帮助)：")
+    if cmd == "h":
+        help()
+    elif cmd == "mz":
+        process_meizhe()
+
+    elif cmd == "cjdz":
+        process_cjdz()
+
+
+    elif cmd == "q":
+        break
     else:
-        print("原价：%.2f，清仓价：%d" % (ret))
-        (orig_price, clearance_price) = ret
-    ws.cell(row=i, column=orig_price_cn).value = orig_price
-    ws.cell(row=i, column=clearance_price_cn).value = clearance_price
+        help()
 
-    while(True):
-        try:
-            wb.save(file)
-            break
-        except IOError:
-            input("文件无法保存，关掉其他应用后重试")
-
-
-
-#wb.save(file)
 wb.close()
 exit(0)
 
-
-#
-# chrome_options = Options()
-# chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
-# driver = webdriver.Chrome(chrome_options=chrome_options)
-#
-# # 默认等待时间10秒
-# driver.implicitly_wait(10)
-
-
-# 进入活动管理页面
-# driver.get("https://meizhe.meideng.net/huodong/list")
-
-# 注意选择子的使用，必须保证在两个界面（第一次搜索和之后）都能使用
-# search_box_ele = driver.find_element_by_css_selector("input.mz-form-control.mz-input")
-# print(search_box_ele)
-# print(search_box_ele.text)
-#
-# search_box_ele.clear()
-# search_box_ele.send_keys("11008-6862" + Keys.RETURN)
-# #main-content > div:nth-child(2) > div.mz-nav-block > ul > li.pull-right > form > input
-#
-# ele = driver.find_element_by_css_selector("div.final-price input")
-#
-# # 获取原价
-# orig_price = ele.get_attribute("value")
-#
-#
-# # 发送10次删除键
-# ele.send_keys(Keys.BACKSPACE * 10 )
-#
-# clearance_price = utils.calc_clearance_price(orig_price)
-# ele.send_keys(clearance_price)
-#
-# summit_button  = driver.find_element_by_css_selector("div.fast-submit a.btn-primary")
-#
-# #main-content > div:nth-child(2) > div.mz-edit-all-items > ul > li > ul:nth-child(2) > li > div.mz-row.mz-discountable-row > div.mz-col-md-0.decrease > input[type=text]
