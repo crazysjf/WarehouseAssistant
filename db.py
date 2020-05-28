@@ -44,14 +44,25 @@ def convert_xls_to_db(goods_file, sales_file, stock_file, tb_assistant_file):
 # 各操作判断标准参考readme.txt
 
 # 半价清仓
+# sql_clearance = u"""SELECT  g.款式编码, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime
+#       FROM goods as g, sales as s, stock as t
+#       Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
+#        t.库存类型='仓位' and
+#        t.数量 >0 and
+#         g.备注 Not Like '%%清%%'and
+#        (select sum(s1.[7天销量]) from sales s1 where s1.商品款号 = s.商品款号) < 2 and
+#         g.createTime<Date('%s') group by g.款式编码""" % (date.today() - timedelta(30))
+
 sql_clearance = u"""SELECT  g.款式编码, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime
       FROM goods as g, sales as s, stock as t 
       Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
        t.库存类型='仓位' and
        t.数量 >0 and
         g.备注 Not Like '%%清%%'and 
-       (select sum(s1.[7天销量]) from sales s1 where s1.商品款号 = s.商品款号) < 2 and
-        g.createTime<Date('%s') group by g.款式编码""" % (date.today() - timedelta(30))
+        g.备注 Not Like '%%留%%' and
+        g.备注 Not Like '%%流前%%' and
+        g.备注 Not Like '%%年后%%'
+        group by g.款式编码"""
 
 
 # 销量过低SKU

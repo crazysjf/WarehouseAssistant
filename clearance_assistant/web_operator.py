@@ -4,7 +4,7 @@ from selenium.webdriver.chrome.options import Options
 
 from selenium.webdriver.common.keys import Keys
 import clearance_assistant.utils as utils
-import time
+import time, sys
 
 class Singleton(object):
     _instance = None
@@ -63,9 +63,15 @@ class WebOperator(Singleton):
 
         clearance_price = utils.calc_clearance_price(orig_price)
         price_input.send_keys(str(clearance_price))
+        while(True):
+            try:
+                summit_button = self._driver.find_element_by_css_selector("div.fast-submit a.btn-primary")
+                summit_button.click()
+                break
+            except:
+                print("Unexpected error wile clicking:", sys.exc_info()[0])
+                time.sleep(1)
 
-        summit_button = self._driver.find_element_by_css_selector("div.fast-submit a.btn-primary")
-        summit_button.click()
 
         return (orig_price, clearance_price)
 
@@ -107,7 +113,13 @@ class WebOperator(Singleton):
         # status_div如果存在表明没有找到任何宝贝
         if status_div != None:
             return False
+        while (True):
+            try:
+                checkbox = self._driver.find_element_by_css_selector("div.listContent i.next-icon")
+                checkbox.click()
+                break
+            except:
+                print("Unexpected error wile clicking:", sys.exc_info()[0])
+                time.sleep(1)
 
-        checkbox = self._driver.find_element_by_css_selector("div.listContent i.next-icon")
-        checkbox.click()
         return True

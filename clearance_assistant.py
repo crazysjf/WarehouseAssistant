@@ -33,12 +33,12 @@ def process_meizhe():
     orig_price_cn = utils.ws_get_column_cn(ws, "原价")
     if orig_price_cn == None:
         ws.cell(row=1, column=ws.max_column + 1).value = "原价"
-        orig_price_cn = ws.max_column + 1
+        orig_price_cn = ws.max_column
 
     clearance_price_cn = utils.ws_get_column_cn(ws, "清仓价")
     if clearance_price_cn == None:
         ws.cell(row=1, column=ws.max_column + 1).value = "清仓价"
-        clearance_price_cn = ws.max_column + 1
+        clearance_price_cn = ws.max_column
 
     wo = web_operator.WebOperator()
     wo.meizhe_start_operation()
@@ -80,7 +80,7 @@ def process_cjdz():
     catagory_set_cn = utils.ws_get_column_cn(ws, "类目设置")
     if catagory_set_cn == None:
         ws.cell(row=1, column=ws.max_column + 1).value = "类目设置"
-        catagory_set_cn = ws.max_column + 1
+        catagory_set_cn = ws.max_column
 
     wo = web_operator.WebOperator()
     wo.cjdz_start_operation()

@@ -1,4 +1,25 @@
 
+# def calc_clearance_price(orig_price):
+#     '''
+#     计算清仓价格。
+#     :param orig_price:原价
+#     :return:返回值也应该为文本字符串
+#     '''
+#     clearance_price = orig_price
+#
+#     orig_price = orig_price + 1
+#     clearance_price = int(orig_price / 2)
+#
+#     # 如果为10的备注则把尾号改为9
+#     if clearance_price % 10 == 0:
+#         clearance_price = clearance_price - 1
+#
+#     # 最低价为16元
+#     if clearance_price < 16:
+#         clearance_price = 16
+#
+#     return clearance_price
+
 def calc_clearance_price(orig_price):
     '''
     计算清仓价格。
@@ -8,7 +29,7 @@ def calc_clearance_price(orig_price):
     clearance_price = orig_price
 
     orig_price = orig_price + 1
-    clearance_price = int(orig_price / 2)
+    clearance_price = int(orig_price * 2 / 3)
 
     # 如果为10的备注则把尾号改为9
     if clearance_price % 10 == 0:
@@ -19,7 +40,6 @@ def calc_clearance_price(orig_price):
         clearance_price = 16
 
     return clearance_price
-
 
 
 def ws_get_column_cn(ws, name):
