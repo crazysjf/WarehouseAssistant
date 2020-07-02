@@ -14,6 +14,74 @@ def init():
     global conn
     conn = sqlite3.connect(utils.get_db_file())
 
+
+def _parse_sku_props(sku_props):
+    '''
+    传入例：74:3515:11290-006-白:1627207:28320;20509:28383;74:1969:11290-006-黄杏:1627207:8190863;20509:28383;74:1944:11290-006-藕粉:1627207:14665273;20509:28383;74:1945:11290-006-卡其:1627207:28331;20509:28383;74:1940:11290-006-浅灰:1627207:28332;20509:28383;74:1964:11290-006-蓝:1627207:28338;20509:28383;74:0:11290-006-水晶绿:1627207:6587253;20509:28383;74:1972:11290-006-草绿:1627207:7698564;20509:28383;74:1830:11290-006-黑:1627207:28341;20509:28383;74:0:11290-006-红杏:1627207:1024188623;20509:28383;
+    74：售价
+    3515： 库存
+    11290-006-白：商品编码
+    其他：不明
+
+    返回一个字典：
+    {
+    "11290-006-白":3515,
+    ...
+    }
+    '''
+
+    ret = {}
+    skus = sku_props.split(';')
+    for sku in skus:
+        ps = sku.split(":")
+
+        # 里面会有用分号隔开的这个：20509:28383，含义不明，直接去掉
+        if len(ps) < 3:
+            pass
+        else:
+            code = ps[2]
+            stock = ps[1]
+            ret[code] = stock
+
+
+    return ret
+
+
+def handle_tb_assistant_file(tb_assistant_file, conn):
+    """
+    处理淘宝助理文件。
+    结果存入一个名为"online_goods"的数据表，格式如下：
+    款式编码    商品编码    库存
+
+    每个SKU一行，仅保留线上在售的款
+
+    params:
+    conn: 数据库连接
+    """
+    df = pd.read_excel(tb_assistant_file, header=2)  # 忽略掉前两行
+    #df = df.loc[:, ['放入仓库', '商家编码']]  # 仅保留2列
+
+    SPU_codes = []
+    SKU_codes = []
+    stocks = []
+
+    for ridx in df.index:
+        r = df.loc[ridx]
+        if r['放入仓库'] == 1: # 1: 已上架 2：已放入仓库
+            spu_code = r['商家编码']
+
+            # 例：74:3515:11290-006-白:1627207:28320;20509:28383;74:1969:11290-006-黄杏:1627207:8190863;20509:28383;74:1944:11290-006-藕粉:1627207:14665273;20509:28383;74:1945:11290-006-卡其:1627207:28331;20509:28383;74:1940:11290-006-浅灰:1627207:28332;20509:28383;74:1964:11290-006-蓝:1627207:28338;20509:28383;74:0:11290-006-水晶绿:1627207:6587253;20509:28383;74:1972:11290-006-草绿:1627207:7698564;20509:28383;74:1830:11290-006-黑:1627207:28341;20509:28383;74:0:11290-006-红杏:1627207:1024188623;20509:28383;
+            sku_props =  r['销售属性组合']
+            d = _parse_sku_props(str(sku_props))
+            for k in d.keys():
+                SPU_codes.append(spu_code)
+                SKU_codes.append(k)
+                stocks.append(d[k])
+
+    tmp_df = pd.DataFrame({'款式编码':SPU_codes, '商品编码':SKU_codes, '库存':stocks})
+    tmp_df.to_sql('online_goods', conn, if_exists="replace")
+
+
 def convert_xls_to_db(goods_file, sales_file, stock_file, tb_assistant_file):
     # 处理商品表
     # 需要转换日期格式，否则sql查询日期比较会出问题。
@@ -36,10 +104,10 @@ def convert_xls_to_db(goods_file, sales_file, stock_file, tb_assistant_file):
 
     # 处理淘宝助理文件
     if tb_assistant_file != None:
-        df = pd.read_excel(tb_assistant_file, header=2) # 忽略掉前两行
-        df = df.loc[:,['放入仓库','商家编码']] # 仅保留2列
-        df.to_sql('tb_assistant', conn, if_exists="replace")
-
+        # df = pd.read_excel(tb_assistant_file, header=2) # 忽略掉前两行
+        # df = df.loc[:,['放入仓库','商家编码']] # 仅保留2列
+        # df.to_sql('tb_assistant', conn, if_exists="replace")
+        handle_tb_assistant_file(tb_assistant_file, conn)
 
 # 各操作判断标准参考readme.txt
 
@@ -100,12 +168,20 @@ sql_off_shelf =  u"""SELECT  g.款式编码, g.商品名, sum(s.[7天销量]) as
 
 
 # 有库存未上架商品：有库存，但是线上状态为已下架
-sql_not_on_shelf =  u"""SELECT g.款式编码, sum(t.数量) as [库存汇总],  t.仓位, ta.放入仓库 as 是否下架
-      FROM stock as t, tb_assistant as ta, goods as g 
-      Where t.商品编码=g.商品编码 and g.款式编码=ta.商家编码 and 
-       t.库存类型='仓位' and
-       ta.放入仓库=2
-       group by g.款式编码"""
+
+# sql_not_on_shelf =  u"""SELECT g.款式编码, sum(t.数量) as [库存汇总],  t.仓位, ta.放入仓库 as 是否下架
+#       FROM stock as t, tb_assistant as ta, goods as g
+#       Where t.商品编码=g.商品编码 and g.款式编码=ta.商家编码 and
+#        t.库存类型='仓位' and
+#        ta.放入仓库=2
+#        group by g.款式编码"""
+
+sql_not_on_shelf = """SELECT g.款式编码, g.商品编码, t.数量,  t.仓位
+      FROM stock as t,   goods as g LEFT JOIN online_goods as o on g.商品编码 = o.商品编码
+      Where t.商品编码=g.商品编码 and 
+       t.库存类型='仓位' and  o.商品编码 is NULL
+       order by g.商品编码"""
+
 
 # 有库存无编码款(要重点检查，一般是编码出了问题)
 sql_has_stock_no_code =  u"""SELECT t.商品编码,   t.仓位, t.数量
