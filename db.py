@@ -112,6 +112,8 @@ def convert_xls_to_db(goods_file, sales_file, stock_file, tb_assistant_file):
 # 各操作判断标准参考readme.txt
 
 # 半价清仓
+# 关于“留”的处理：一个款里面，只要有一个SKU备注了“留”，这个款就不会被清仓。
+
 sql_clearance = u"""SELECT  g.款式编码, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime
       FROM goods as g, sales as s, stock as t
       Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
@@ -119,6 +121,7 @@ sql_clearance = u"""SELECT  g.款式编码, sum(s.[7天销量]) as [7天销量�
        t.数量 >0 and
         g.备注 Not Like '%%清%%'and
        (select sum(s1.[7天销量]) from sales s1 where s1.商品款号 = s.商品款号) < 2 and
+       (select count(*) from goods where goods.款式编码 = g.款式编码 and  goods.备注 Like '%%留%%') = 0 and
         g.createTime<Date('%s') group by g.款式编码""" % (date.today() - timedelta(30))
 
 # sql_clearance = u"""SELECT  g.款式编码, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime
@@ -144,8 +147,9 @@ sql_sales_too_low = u"""SELECT  g.商品编码, g.备注, s.[7天销量], s.[15�
        (g.备注 is null or 
        g.备注 Not Like '%%过低%%' and 
        g.备注 Not Like '%%销低%%' and    
-       g.备注 Not Like '%%清%%'and 
-       g.备注 Not Like '%%收%%')and
+       g.备注 Not Like '%%清%%' and 
+       g.备注 Not Like '%%收%%' and
+       g.备注 Not Like '%%留%%')and
         g.款式编码 not in (select code from clearance) and 
         g.createTime<Date('%s')""" % (date.today() - timedelta(30))
 
