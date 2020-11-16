@@ -402,12 +402,12 @@ def gen_reresult_file():
         pass
 
     # 一仓多货
-    df = get_multi_goods_in_one_slot()
-    df.to_excel(writer, "一仓多货",  index=False)
+    #df = get_multi_goods_in_one_slot()
+    #df.to_excel(writer, "一仓多货",  index=False)
 
     # 一货多仓
-    df = get_one_good_in_multiple_slots()
-    df.to_excel(writer, "一货多仓",  index=False)
+    #df = get_one_good_in_multiple_slots()
+    #df.to_excel(writer, "一货多仓",  index=False)
 
     # 有库存无商品编码（一般是编码错误但是上了架）
     df = pd.read_sql_query(sql_has_stock_no_code, conn)
