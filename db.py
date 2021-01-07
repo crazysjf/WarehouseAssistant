@@ -161,14 +161,13 @@ sql_sales_clearance = u"""SELECT  g.商品编码, g.备注, s.[7天销量], s.[1
        g.备注 Like '%%清%%'"""
 
 # 可下架商品
-sql_off_shelf =  u"""SELECT  g.款式编码, g.商品名, sum(s.[7天销量]) as [7天销量汇总], sum(s.[15天销量]) as [15天销量汇总], g.备注, sum(t.数量) as [库存汇总], g.createTime, t.仓位
+sql_off_shelf =  u"""SELECT  g.款式编码, g.商品编码, g.商品名, s.[7天销量], s.[15天销量], g.备注, t.数量, g.createTime, t.仓位
       FROM goods as g, sales as s, stock as t 
       Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
        t.库存类型='仓位' and
        t.数量 >0 and
        g.备注 Like '%%清%%' and
-       (select sum(s1.[15天销量]) from sales s1 where s1.商品款号 = s.商品款号) = 0
-        group by g.款式编码"""
+       (select sum(s1.[15天销量]) from sales s1 where s1.商品款号 = s.商品款号) = 0"""
 
 
 # 有库存未上架商品：有库存，但是线上状态为已下架

@@ -28,7 +28,7 @@ def get_source_files():
 
     fs = os.listdir(FILE_DIR)
     for f in fs:
-        m = re.match('商品资料.*\.xlsx$', f)
+        m = re.match('商品信息.*\.xlsx$', f)
         if m != None:
             goods_file = f
 
