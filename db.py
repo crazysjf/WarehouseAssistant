@@ -137,7 +137,7 @@ sql_clearance = u"""SELECT  g.款式编码, sum(s.[7天销量]) as [7天销量�
 
 
 # 销量过低SKU
-sql_sales_too_low = u"""SELECT  g.商品编码, g.备注, s.[7天销量], s.[15天销量], t.数量,  g.createTime, t.仓位
+sql_sales_too_low = u"""SELECT  g.商品编码, g.备注, s.[7天销量], s.[15天销量],  sum(t.数量) as 数量,  g.createTime, t.仓位
       FROM goods as g, sales as s, stock as t
       Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
        t.库存类型='仓位' and
@@ -150,24 +150,34 @@ sql_sales_too_low = u"""SELECT  g.商品编码, g.备注, s.[7天销量], s.[15�
        g.备注 Not Like '%%清%%' and 
        g.备注 Not Like '%%收%%' and
        g.备注 Not Like '%%留%%')and
-        g.款式编码 not in (select code from clearance) and 
-        g.createTime<Date('%s')""" % (date.today() - timedelta(30))
+       g.款式编码 not in (select code from clearance) and 
+       g.createTime<Date('%s') 
+       group by g.商品编码""" % (date.today() - timedelta(30))
 
 # 清仓商品销量：备注包含“清”字，且销量>0的款
 sql_sales_clearance = u"""SELECT  g.商品编码, g.备注, s.[7天销量], s.[15天销量], t.数量, g.createTime
       FROM goods as g, sales as s, stock as t
-      Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
+      Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and t.库存类型='仓位' and
        (s.[7天销量] > 0 or s.[15天销量] > 0) and 
        g.备注 Like '%%清%%'"""
 
 # 可下架商品
+# sql_off_shelf =  u"""SELECT  g.款式编码, g.商品编码, g.商品名, s.[7天销量], s.[15天销量], g.备注, t.数量, g.createTime, t.仓位
+#       FROM goods as g, sales as s, stock as t
+#       Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
+#        t.库存类型='仓位' and
+#        t.数量 >0 and
+#        g.备注 Like '%%清%%' and
+#        (select sum(s1.[15天销量]) from sales s1 where s1.商品款号 = s.商品款号) = 0"""
+
 sql_off_shelf =  u"""SELECT  g.款式编码, g.商品编码, g.商品名, s.[7天销量], s.[15天销量], g.备注, t.数量, g.createTime, t.仓位
       FROM goods as g, sales as s, stock as t 
       Where g.商品编码=s.商品编号 and g.商品编码=t.商品编码 and
        t.库存类型='仓位' and
        t.数量 >0 and
-       g.备注 Like '%%清%%' and
-       (select sum(s1.[15天销量]) from sales s1 where s1.商品款号 = s.商品款号) = 0"""
+       g.备注 Like '%%清%%' and s.[15天销量]=0"""
+       #(select sum(s1.[15天销量]) from sales s1 where s1.商品款号 = s.商品款号) = 0"""
+
 
 
 # 有库存未上架商品：有库存，但是线上状态为已下架
@@ -362,8 +372,8 @@ def gen_reresult_file():
         # 在库存表中有的行只有商品编码没有款式编码，必须借助商品表中转
         sql = u"""SELECT distinct t.仓位
               FROM goods as g, stock as t
-          Where t.商品编码=g.商品编码 and 
-          g.款式编码='%s' and 
+          Where t.商品编码=g.商品编码 and
+          g.款式编码='%s' and
           t.库存类型='仓位'""" % c
         df1 = pd.read_sql_query(sql, conn)
         s = ""
@@ -396,7 +406,7 @@ def gen_reresult_file():
     # 有库存未上架款
     try: # 如果没有淘宝助理文件，会报异常，直接忽略即可
         df = pd.read_sql_query(sql_not_on_shelf, conn)
-        df.to_excel(writer, "有库存未上架款", index=False)
+        df.to_excel(writer, "有库存，线上未上架款或已删除", index=False)
     except:
         pass
 
